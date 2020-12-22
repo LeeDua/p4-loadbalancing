@@ -41,8 +41,11 @@ header tcp_t {
     bit<16> urgentPtr;
 }
 
-struct metadata {
-    bit<14> ecmp_select;
+struct Metadata {
+    bit<16> global_offset;
+    bit<16> local_length;
+    bit<16> local_offset;
+    bit<16> final_offset;
 }
 
 struct headers {
@@ -57,7 +60,7 @@ struct headers {
 
 parser MyParser(packet_in packet,
                 out headers hdr,
-                inout metadata meta,
+                inout Metadata meta,
                 inout standard_metadata_t standard_metadata) {
     
     state start {
@@ -87,7 +90,7 @@ parser MyParser(packet_in packet,
 ************   C H E C K S U M    V E R I F I C A T I O N   *************
 *************************************************************************/
 
-control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
+control MyVerifyChecksum(inout headers hdr, inout Metadata meta) {
     apply { }
 }
 
@@ -96,52 +99,103 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 *************************************************************************/
 
 control MyIngress(inout headers hdr,
-                  inout metadata meta,
+                  inout Metadata metadata,
                   inout standard_metadata_t standard_metadata) {
+
     action drop() {
         mark_to_drop(standard_metadata);
     }
-    action set_ecmp_select(bit<16> ecmp_base, bit<32> ecmp_count) {
-        hash(meta.ecmp_select,
+
+    action set_local_offset(){
+        bit<16> base = 0;
+        /*
+        hash(metadata.local_offset,
 	    HashAlgorithm.crc16,
-	    ecmp_base,
+        base,
 	    { hdr.ipv4.srcAddr,
 	      hdr.ipv4.dstAddr,
               hdr.ipv4.protocol,
               hdr.tcp.srcPort,
               hdr.tcp.dstPort },
-	    ecmp_count);
+        metadata.local_length
+              );
+        */ 
+        hash(metadata.local_offset,
+	    HashAlgorithm.crc16,
+        base,
+	    { 
+            hdr.tcp.srcPort
+           },
+        metadata.local_length
+              );
     }
-    action set_nhop(bit<48> nhop_dmac, bit<32> nhop_ipv4, bit<9> port) {
+
+    action set_sub_table_offset(bit<16> offset){
+        metadata.global_offset = offset;
+    }
+     
+    action set_sub_table_size(bit<16> len){
+        metadata.local_length = len;
+    }   
+
+    action set_nhop(bit<48> nhop_dmac, bit<9> port) {
         hdr.ethernet.dstAddr = nhop_dmac;
-        hdr.ipv4.dstAddr = nhop_ipv4;
         standard_metadata.egress_spec = port;
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
-    table ecmp_group {
-        key = {
-            hdr.ipv4.dstAddr: lpm;
-        }
-        actions = {
-            drop;
-            set_ecmp_select;
-        }
-        size = 1024;
+
+    action cal_final_offset(){
+        metadata.final_offset = metadata.global_offset + metadata.local_offset;
     }
-    table ecmp_nhop {
+
+    table routing_table {
         key = {
-            meta.ecmp_select: exact;
+            metadata.final_offset: exact;
         }
         actions = {
             drop;
             set_nhop;
         }
-        size = 2;
+        size = 1024;
     }
+
+    table sub_table_size{
+        key = {
+            hdr.ipv4.dstAddr: lpm;
+        }
+        actions = {
+            drop;
+            set_sub_table_size;
+        }
+    }
+    table sub_table_offset{
+        key = {
+            hdr.ipv4.dstAddr: lpm;
+        }
+        actions = {
+            drop;
+            set_sub_table_offset;
+        }
+        size = 1024;
+    }
+
     apply {
         if (hdr.ipv4.isValid() && hdr.ipv4.ttl > 0) {
-            ecmp_group.apply();
-            ecmp_nhop.apply();
+            sub_table_size.apply();
+            sub_table_offset.apply();
+            set_local_offset();
+            cal_final_offset();
+            routing_table.apply();
+            /*if (standard_metadata.ingress_port == standard_metadata.egress_spec){
+                if (metadata.local_offset == metadata.local_length -1 ){
+                    metadata.local_offset = 0;
+                }
+                else{
+                    metadata.local_offset = metadata.local_offset + 1;
+                }
+                cal_final_offset();
+                routing_table.apply();
+            }*/
         }
     }
 }
@@ -151,27 +205,27 @@ control MyIngress(inout headers hdr,
 *************************************************************************/
 
 control MyEgress(inout headers hdr,
-                 inout metadata meta,
+                 inout Metadata meta,
                  inout standard_metadata_t standard_metadata) {
     
-    action rewrite_mac(bit<48> smac) {
-        hdr.ethernet.srcAddr = smac;
+    action get_port_mac(bit<48> port_mac) {
+        hdr.ethernet.srcAddr = port_mac;
     }
     action drop() {
         mark_to_drop(standard_metadata);
     }
-    table send_frame {
+    table local_ports {
         key = {
             standard_metadata.egress_port: exact;
         }
         actions = {
-            rewrite_mac;
+            get_port_mac;
             drop;
         }
         size = 256;
     }
     apply {
-        send_frame.apply();
+        local_ports.apply();
     }
 }
 
@@ -179,7 +233,7 @@ control MyEgress(inout headers hdr,
 *************   C H E C K S U M    C O M P U T A T I O N   **************
 *************************************************************************/
 
-control MyComputeChecksum(inout headers hdr, inout metadata meta) {
+control MyComputeChecksum(inout headers hdr, inout Metadata meta) {
      apply {
 	update_checksum(
 	    hdr.ipv4.isValid(),
