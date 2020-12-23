@@ -1,7 +1,7 @@
 {
   "target": "bmv2",
-  "p4info": "build/load_balance.p4.p4info.txt",
-  "bmv2_json": "build/load_balance.json",
+  "p4info": "build/ecmp.p4.p4info.txt",
+  "bmv2_json": "build/ecmp.json",
   "table_entries": [
     {
       "table": "MyIngress.sub_table_offset",
@@ -36,7 +36,7 @@
       },
       "action_name": "MyIngress.set_sub_table_offset",
       "action_params": {
-        "offset": 1
+        "offset": 2
       }
     },
 
@@ -63,7 +63,7 @@
       },
       "action_name": "MyIngress.set_sub_table_size",
       "action_params": {
-        "len": 2
+        "len": 1
       }
     },
     {
@@ -73,7 +73,7 @@
       },
       "action_name": "MyIngress.set_sub_table_size",
       "action_params": {
-        "len": 2
+        "len": 1
       }
     },
 
