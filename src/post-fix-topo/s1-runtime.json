@@ -1,0 +1,117 @@
+{
+  "target": "bmv2",
+  "p4info": "build/spine_leaf_ecmp.p4.p4info.txt",
+  "bmv2_json": "build/spine_leaf_ecmp.json",
+  "table_entries": [
+    {
+      "table": "MyIngress.sub_table_offset",
+      "default_action": true,
+      "action_name": "MyIngress.drop",
+      "action_params": { }
+    },
+    {
+      "table": "MyIngress.sub_table_offset",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.1.1", 32]
+      },
+      "action_name": "MyIngress.set_sub_table_offset",
+      "action_params": {
+        "offset": 0
+      }
+    },
+    {
+      "table": "MyIngress.sub_table_offset",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.2.2", 32]
+      },
+      "action_name": "MyIngress.set_sub_table_offset",
+      "action_params": {
+        "offset": 1
+      }
+    },
+    {
+      "table": "MyIngress.sub_table_offset",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.3.3", 32]
+      },
+      "action_name": "MyIngress.set_sub_table_offset",
+      "action_params": {
+        "offset": 2
+      }
+    },
+
+    {
+      "table": "MyIngress.sub_table_size",
+      "default_action": true,
+      "action_name": "MyIngress.drop",
+      "action_params": { }
+    },
+    {
+      "table": "MyIngress.sub_table_size",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.1.1", 32]
+      },
+      "action_name": "MyIngress.set_sub_table_size",
+      "action_params": {
+        "len": 1
+      }
+    },
+    {
+      "table": "MyIngress.sub_table_size",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.2.2", 32]
+      },
+      "action_name": "MyIngress.set_sub_table_size",
+      "action_params": {
+        "len": 1
+      }
+    },
+    {
+      "table": "MyIngress.sub_table_size",
+      "match": {
+        "hdr.ipv4.dstAddr": ["10.0.3.3", 32]
+      },
+      "action_name": "MyIngress.set_sub_table_size",
+      "action_params": {
+        "len": 1
+      }
+    },
+
+
+    {
+      "table": "MyIngress.post_fix_table",
+      "default_action": true,
+      "action_name": "MyIngress.drop",
+      "action_params": { }
+    },{
+      "table": "MyIngress.post_fix_table",
+      "match": {
+        "metadata.masked_dst_ip": "0.0.0.1"
+      },
+      "action_name": "MyIngress.set_nhop",
+      "action_params": {
+        "port" : 1
+      }
+    },{
+      "table": "MyIngress.post_fix_table",
+      "match": {
+        "metadata.masked_dst_ip": "0.0.0.2"
+      },
+      "action_name": "MyIngress.set_nhop",
+      "action_params": {
+        "port" : 2
+      }
+    },{
+      "table": "MyIngress.post_fix_table",
+      "match": {
+        "metadata.masked_dst_ip": "0.0.0.3"
+      },
+      "action_name": "MyIngress.set_nhop",
+      "action_params": {
+        "port" : 3
+      }
+    }
+
+    
+  ]
+}
